@@ -1,6 +1,12 @@
-<div>
+<div wire:init="loadStats">
     <h2 class="text-3xl font-bold mb-6">Dashboard</h2>
 
+    @if(!$readyToLoad)
+        <div class="flex justify-center items-center py-20">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+            <span class="ml-3 text-gray-600">Cargando estadísticas...</span>
+        </div>
+    @else
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div class="bg-white rounded-lg shadow p-6">
@@ -64,4 +70,5 @@
             @endif
         </div>
     </div>
+    @endif
 </div>

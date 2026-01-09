@@ -28,10 +28,16 @@ class CampaignHistory extends Component
 
     public function render()
     {
-        $campaigns = Campaign::with('group')
+        // Solo seleccionar las columnas necesarias
+        $campaigns = Campaign::select([
+                'id', 'name', 'status', 'group_id', 'message', 
+                'sent_count', 'delivered_count', 'read_count', 'failed_count',
+                'created_at', 'updated_at', 'image_path'
+            ])
+            ->with('group:id,name')
             ->whereIn('status', ['completed', 'failed'])
             ->latest('updated_at')
-            ->paginate(20);
+            ->paginate(15); // Reducido de 20 a 15 para cargar más rápido
 
         return view('livewire.campaign-history', [
             'campaigns' => $campaigns,

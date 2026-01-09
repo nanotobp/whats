@@ -6,49 +6,84 @@ use App\Models\Campaign;
 use App\Models\Message;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class CampaignMetrics extends Component
 {
     public Campaign $campaign;
     public $readDetails = [];
     public $unreadContacts = [];
+    public $readyToLoad = false;
 
     public function mount(Campaign $campaign)
     {
-        $this->campaign = $campaign->load(['messages.contact', 'group']);
+        $this->campaign = $campaign->load('group:id,name');
+    }
+
+    public function loadMetrics()
+    {
+        $this->readyToLoad = true;
         $this->loadReadDetails();
     }
 
     public function loadReadDetails()
     {
-        // Get contacts who read the message
-        $this->readDetails = $this->campaign->messages()
-            ->where('status', 'read')
-            ->with('contact')
-            ->get()
-            ->map(function ($message) {
-                return [
-                    'name' => $message->contact->name ?? $message->contact->phone,
-                    'phone' => $message->contact->phone,
-                    'read_at' => $message->read_at,
-                    'time_to_read' => $message->sent_at && $message->read_at
-                        ? round($message->sent_at->diffInMinutes($message->read_at))
-                        : null,
-                ];
-            });
+        if (!$this->readyToLoad) {
+            return;
+        }
 
-        // Get contacts who haven't read
-        $this->unreadContacts = $this->campaign->messages()
-            ->whereIn('status', ['sent', 'delivered', 'pending'])
-            ->with('contact')
-            ->get()
-            ->map(function ($message) {
-                return [
-                    'name' => $message->contact->name ?? $message->contact->phone,
-                    'phone' => $message->contact->phone,
-                    'status' => $message->status,
-                ];
-            });
+        $cacheKey = "campaign_metrics_{$this->campaign->id}";
+        
+        // Cachear por 2 minutos
+        $data = Cache::remember($cacheKey, 120, function() {
+            // Get contacts who read the message
+            $readDetails = $this->campaign->messages()
+                ->where('status', 'read')
+                ->join('contacts', 'messages.contact_id', '=', 'contacts.id')
+                ->select(
+                    'contacts.name',
+                    'contacts.phone',
+                    'messages.read_at',
+                    'messages.sent_at'
+                )
+                ->get()
+                ->map(function ($message) {
+                    return [
+                        'name' => $message->name ?? $message->phone,
+                        'phone' => $message->phone,
+                        'read_at' => $message->read_at,
+                        'time_to_read' => $message->sent_at && $message->read_at
+                            ? round(strtotime($message->read_at) - strtotime($message->sent_at)) / 60
+                            : null,
+                    ];
+                });
+
+            // Get contacts who haven't read  
+            $unreadContacts = $this->campaign->messages()
+                ->whereIn('status', ['sent', 'delivered', 'pending'])
+                ->join('contacts', 'messages.contact_id', '=', 'contacts.id')
+                ->select(
+                    'contacts.name',
+                    'contacts.phone',
+                    'messages.status'
+                )
+                ->get()
+                ->map(function ($message) {
+                    return [
+                        'name' => $message->name ?? $message->phone,
+                        'phone' => $message->phone,
+                        'status' => $message->status,
+                    ];
+                });
+
+            return [
+                'readDetails' => $readDetails,
+                'unreadContacts' => $unreadContacts,
+            ];
+        });
+
+        $this->readDetails = $data['readDetails'];
+        $this->unreadContacts = $data['unreadContacts'];
     }
 
     public function getHourlyEngagementData()
