@@ -1,0 +1,28 @@
+# Redirigir todo al directorio public
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Proteger archivos y directorios sensibles
+<FilesMatch "^\.env">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "composer\.(json|lock)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Denegar acceso a directorios importantes
+RedirectMatch 403 ^/\.git
+RedirectMatch 403 ^/storage
+RedirectMatch 403 ^/vendor
+RedirectMatch 403 ^/database
+RedirectMatch 403 ^/app
+RedirectMatch 403 ^/bootstrap
+RedirectMatch 403 ^/config
+RedirectMatch 403 ^/resources
+RedirectMatch 403 ^/routes
+RedirectMatch 403 ^/tests
